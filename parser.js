@@ -77,7 +77,7 @@ class Parser {
 		var block = new Block(buffer);
 		buffer = this.stream.read(block.compressedSize);
 
-		block.uncompress(buffer);
+		block.parse(block.uncompress(buffer));
 	}
 
 }
@@ -116,7 +116,6 @@ class Subheader {
 	}
 
 	readV1 (buffer) {
-		console.log(buffer.slice("0x000A", "0x000C"));
 		this.gameVersion = buffer.slice("0x0000", "0x0004").reverse().toString();
 		this.versionNumber = "1." + buffer.slice("0x0004", "0x0008").readUIntLE(0, 3);
 		this.buildNumber = buffer.slice("0x0008", "0x0010").readUIntLE(0, 2);
@@ -137,18 +136,22 @@ class Block {
 	}
 
 	uncompress (buffer) {
-		var decompressed = zlib.inflateSync(buffer, {finishFlush: zlib.constants.Z_SYNC_FLUSH });
-		
-		this.unknown = decompressed.slice("0x0000", "0x0004");
-		this.playerRecord = new PlayerRecord(decompressed.slice("0x0004"));
-		
-		var gameNameIdx = decompressed.indexOf(NULL_STRING, 4 + this.playerRecord.endIndex);
-		this.gameName = decompressed.slice(4 + this.playerRecord.endIndex, gameNameIdx).toString();
+		return zlib.inflateSync(buffer, {finishFlush: zlib.constants.Z_SYNC_FLUSH });
+	}
 
-		var encoded = decompressed.slice(gameNameIdx + 2, decompressed.indexOf(NULL_STRING, gameNameIdx + 2));
-		var decoded = this.decode(encoded);
+	parse (buffer) {
+		this.unknown = buffer.slice("0x0000", "0x0004");
+		this.playerRecord = new PlayerRecord(buffer.slice("0x0004"));
+		
+		var gameNameIdx = buffer.indexOf(NULL_STRING, 4 + this.playerRecord.endIndex);
+		this.gameName = buffer.slice(4 + this.playerRecord.endIndex, gameNameIdx).toString();
 
-		console.log(this, decoded, decoded.length)
+		var encoded = buffer.slice(gameNameIdx + 2, buffer.indexOf(NULL_STRING, gameNameIdx + 2));
+		var decoded = Buffer.from(this.decode(encoded));
+
+		this.gameSettings = new GameSettings(decoded);
+
+		console.log(this)
 	}
 
 	decode (encoded) {
@@ -178,12 +181,46 @@ class PlayerRecord {
 		this.name = buffer.slice("0x0002", playerIdx).toString();
 		this.additionalDataSize = buffer.slice(playerIdx + 1, playerIdx + 2).readUIntLE(0, 1);
 
-		if (this.additionalDataSize == LADDER_GAME) { 
+		if (this.additionalDataSize == constants.PLAYER_RECORD.LADDER_GAME) { 
 			this.runTime = buffer.slice(playerIdx + 2, playerIdx + 6).readUIntLE(0, 3);
 			this.race = buffer.slice(playerIdx + 6, playerIdx + 10).toString('hex');
 		}
 
 		this.endIndex = playerIdx + 2 + this.additionalDataSize;
+
+	}
+
+}
+
+class GameSettings {
+
+	constructor (buffer) {
+		this.gameSpeed = buffer.slice("0x0000", "0x0001") & 3;
+		var byte = buffer.slice("0x0001", "0x0002");
+
+		this.visibility = {
+			hideTerrain : (byte & 1) == 1,
+			mapExplored : (byte >> 1 & 1) == 1,
+			alwaysVisible : (byte >> 2 & 1) == 1,
+			default : (byte >> 3 & 1) == 1
+		}
+
+		this.observers = byte >> 4 & 3;
+
+		this.teamsTogether = (byte >> 6) == 1;
+
+		byte = buffer.slice("0x0002", "0x0003");
+
+		this.fixedTeams = byte & 3;
+
+		byte = buffer.slice("0x0003", "0x0004");
+
+		this.fullSharedUnitControl = (byte & 1) == 1;
+		this.randomHeroes = (byte >> 1 & 1) == 1;
+		this.randomRaces = (byte >> 2 & 1) == 1;
+		this.referees = (byte >> 6 & 1) == 1;
+
+		this.mapCheckSum = buffer.slice("0x0009", "0x000D");
 
 	}
 
@@ -203,8 +240,32 @@ class Utils {
 
 }
 
-const LADDER_GAME = 8;
 const NULL_STRING = '\0';
+
+const constants = {
+	GAME_SETTINGS : {
+		GAME_SPEED : {
+			SLOW : 0,
+			NORMAL : 1,
+			FAST : 2
+		},
+		OBSERVER : {
+			OFF : 0,
+			UNUSED : 1,
+			OBS_ON_DEFEAT : 2,
+			ON : 3
+		},
+		FIXED_TEAMS : {
+			OFF : 0,
+			UNUSED : 1,
+			UNUSED_2 : 2,
+			ON : 3
+		}
+	},
+	PLAYER_RECORD : {
+		LADDER_GAME : 8
+	}
+}
 
 var fs = require('fs');
 var crc32 = require('js-crc').crc32;
