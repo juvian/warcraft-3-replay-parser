@@ -50,7 +50,7 @@ class Parser {
 	}
 
 	parseBlocks () {
-		for (var i = 0; i < this.header.blocks && i < 2; i++) {
+		for (var i = 0; i < this.header.blocks && i < 5; i++) {
 			this.parseBlock(i);
 		}
 	}
@@ -176,10 +176,12 @@ class DataBlock extends Block {
 	}
 
 	parse (buffer) {
-		this.type = Utils.fromHex(buffer.read(1).toString("hex").split("").reverse().join(""));
+		this.type = Utils.fromHex(buffer.read(1).toString("hex"));
 
 		if (parsers[this.type]) {
 			parsers[this.type].call(this, buffer);
+		} else {
+			console.log("unknow how to parse " + this.type)
 		}
 	}
 }
@@ -350,6 +352,15 @@ class Utils {
 
 }
 
+class ActionBlock {
+
+	constructor(buffer) {
+		this.playerId = buffer.read(1).readUIntLE(0, 1);
+		this.length = buffer.read(2).readUIntLE(0, 2);
+		buffer.read(this.length);
+	}
+
+}
 
 
 var parsers = {}
@@ -437,16 +448,43 @@ const constants = {
 	},
 	BLOCK_TYPE : {
 		LEAVE_GAME : 0x17,
-		CHAT : 0x20
+		CHAT : 0x20,
+		FIRST : 0x1a,
+		SECOND : 0x1b,
+		THIRD : 0x1c,
+		TIME_SLOT_OLD : 0x1E,
+		TIME_SLOT : 0x1F
 	},
 	CHAT : {
 		FLAGS : {
 			DELAYED : 0x10,	
-			NORMAL : 0x20
+			NORMAL : 0x20,
+			START : 0x1A
 		} 
 	}
 }
 
+parsers[constants.BLOCK_TYPE.FIRST] = parsers[constants.BLOCK_TYPE.SECOND] = parsers[constants.BLOCK_TYPE.THIRD] = function (buffer) {
+	console.log(buffer.read(4)); // unknown
+}
+
+parsers[constants.BLOCK_TYPE.TIME_SLOT_OLD] = parsers[constants.BLOCK_TYPE.TIME_SLOT] = function (buffer) {
+	console.log("gg")
+	var words = buffer.read(2).readUIntLE(0, 2);
+	this.timeIncrement = buffer.read(2).readUIntLE(0, 2);
+	this.actions = []
+
+	var counter =  0;
+
+	while (counter < words - 2) {
+		var actionBlock = new ActionBlock(buffer);
+		counter += actionBlock.length + 3;
+		this.actions.push(actionBlock);
+	}
+
+	console.log("sadsadd", this, words)
+
+}
 
 parsers[constants.BLOCK_TYPE.CHAT] = function (buffer) {
 	this.playerId = buffer.read(1).readUIntLE(0, 1);
@@ -456,7 +494,10 @@ parsers[constants.BLOCK_TYPE.CHAT] = function (buffer) {
 	if (this.flags == constants.CHAT.FLAGS.NORMAL) {
 		this.mode = buffer.read(4).toString("hex");
 	}
-	
+
+	this.message = buffer.readUntil(NULL_STRING).toString();
+
+	console.log(this)
 }
 
 
