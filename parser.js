@@ -177,7 +177,7 @@ class DataBlock extends Block {
 
 	parse (buffer) {
 		this.type = Utils.fromHex(buffer.read(1).toString("hex"));
-
+		console.log(buffer)	
 		if (parsers[this.type]) {
 			parsers[this.type].call(this, buffer);
 		} else {
@@ -185,6 +185,29 @@ class DataBlock extends Block {
 		}
 	}
 }
+
+/*
+1a
+1b
+1c
+20
+20
+20
+20
+20
+20
+20
+20
+20
+20
+1f
+22
+1f
+
+<Buffer 1a 01 00 00 00 1b 01 00 00 00 1c 01 00 00 00 20 02 3f 00 20 00 00 00 00 53 68 6f 72 74 65 73 74 20 6c 6f 61 64 20 62 79 20 70 6c 61 79 65 72 20 5b 46 ... >
+
+
+*/
 
 class StartupBlock extends Block {
 	constructor (buffer) {
@@ -465,7 +488,7 @@ const constants = {
 }
 
 parsers[constants.BLOCK_TYPE.FIRST] = parsers[constants.BLOCK_TYPE.SECOND] = parsers[constants.BLOCK_TYPE.THIRD] = function (buffer) {
-	console.log(buffer.read(4)); // unknown
+	buffer.read(5); // unknown
 }
 
 parsers[constants.BLOCK_TYPE.TIME_SLOT_OLD] = parsers[constants.BLOCK_TYPE.TIME_SLOT] = function (buffer) {
@@ -497,7 +520,7 @@ parsers[constants.BLOCK_TYPE.CHAT] = function (buffer) {
 
 	this.message = buffer.readUntil(NULL_STRING).toString();
 
-	console.log(this)
+	console.log(this, "chat")
 }
 
 
