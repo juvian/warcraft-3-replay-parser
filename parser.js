@@ -50,7 +50,7 @@ class Parser {
 	}
 
 	parseBlocks () {
-		for (var i = 0; i < this.header.blocks && i < 5; i++) {
+		for (var i = 0; i < this.header.blocks && i < 1; i++) {
 			this.parseBlock(i);
 		}
 	}
@@ -96,6 +96,10 @@ class BufferWrapper {
 
 	toString (...args) {
 		return this.buffer.toString.apply(this.buffer, arguments);
+	}
+
+	isEmpty () {
+		return this.idx >= this.buffer.length;
 	}
 
 }
@@ -167,6 +171,56 @@ class Block {
 		return new BufferWrapper(zlib.inflateSync(buffer, {finishFlush: zlib.constants.Z_SYNC_FLUSH }));
 	}
 
+	parseDataBlocks (buffer) {
+		while (buffer.isEmpty() == false) {
+			this.type = Utils.fromHex(buffer.read(1).toString("hex"));
+			console.log(this.type)
+			
+			if ([constants.BLOCK_TYPE.FIRST, constants.BLOCK_TYPE.SECOND, constants.BLOCK_TYPE.THIRD].includes(this.type)) {
+				assert(buffer.peek(4).toString("hex") == '01000000', 'Invalid start blocks : ' + buffer.read(4).toString("hex"));
+			} else if ([constants.BLOCK_TYPE.TIME_SLOT_OLD, constants.BLOCK_TYPE.TIME_SLOT].includes(this.type)) {
+				this.parseTimeSlot(buffer);
+			} else if (this.type == constants.BLOCK_TYPE.CHAT) {
+				this.parseChat(buffer);
+			} else if (this.type == constants.BLOCK_TYPE.CHECKSUM) {
+				var bytesThatFollow = buffer.read(1).readUIntLE(0, 1);
+				buffer.read(bytesThatFollow); // unknown
+			} else {
+				console.log(buffer.read(10))
+				throw Error("unknow how to parse " + this.type)
+			}
+		}		
+	}
+
+	parseTimeSlot (buffer) {
+		var words = buffer.read(2).readUIntLE(0, 2);
+		this.timeIncrement = buffer.read(2).readUIntLE(0, 2);
+		this.actions = []
+
+		var counter =  0;
+
+		while (counter < words - 2) {
+			console.log(counter, words, buffer.idx, buffer.buffer.length)
+			var actionBlock = new ActionBlock(buffer);
+			counter += actionBlock.length + 3;
+			this.actions.push(actionBlock);
+		}
+	}
+
+	parseChat (buffer) {
+		this.playerId = buffer.read(1).readUIntLE(0, 1);
+		var messageLength = buffer.read(2).readUIntLE(0, 2) - 1; // bytes that follow
+		
+		this.flags = buffer.read(1).toString("hex");
+
+		if (this.flags == constants.CHAT.FLAGS.NORMAL) {
+			this.mode = buffer.read(4).toString("hex");
+			messageLength -= 4;
+		}
+
+		this.message = buffer.read(messageLength).toString();
+	}
+
 }
 
 
@@ -176,13 +230,7 @@ class DataBlock extends Block {
 	}
 
 	parse (buffer) {
-		this.type = Utils.fromHex(buffer.read(1).toString("hex"));
-		console.log(buffer)	
-		if (parsers[this.type]) {
-			parsers[this.type].call(this, buffer);
-		} else {
-			console.log("unknow how to parse " + this.type)
-		}
+		this.parseDataBlocks(buffer);
 	}
 }
 
@@ -241,7 +289,9 @@ class StartupBlock extends Block {
 		this.languageId = buffer.read(4);
 
 		this.parsePlayers(buffer);
-		this.gameStartRecord = new GameStartRecord(buffer);		
+		this.gameStartRecord = new GameStartRecord(buffer);
+
+		this.parseDataBlocks(buffer);
 	}
 
 	parsePlayers (buffer) {
@@ -267,8 +317,6 @@ class StartupBlock extends Block {
 	}
 
 }
-
-//H  àà¢ÉµÍMaps\Download\eden rpg 2.5c eng.w3x Justme_Hostbot  ¤àD­àÙbÒH|¢
 
 class PlayerRecord {
 
@@ -380,13 +428,152 @@ class ActionBlock {
 	constructor(buffer) {
 		this.playerId = buffer.read(1).readUIntLE(0, 1);
 		this.length = buffer.read(2).readUIntLE(0, 2);
-		buffer.read(this.length);
-	}
 
+		var bufferIdx = buffer.idx;
+
+		while (buffer.idx - bufferIdx < this.length) {
+			var actionId = buffer.read(1).readUIntLE(0, 1);
+			var action = new Action();
+			switch (actionId) {
+				case constants.ACTIONS.PAUSE:
+				case constants.ACTIONS.RESUME:
+				case constants.ACTIONS.INCREASE_GAME_SPEED:
+				case constants.ACTIONS.DECREASE_GAME_SPEED:
+				case constants.ACTIONS.CHEAT_THE_DUDE_ABIDES:
+				case constants.ACTIONS.CHEAT_SOMEBODY_SET_US_UP_THE_BOMB:
+				case constants.ACTIONS.CHEAT_WARPTEN:
+				case constants.ACTIONS.CHEAT_IOCAINE_POWDER:
+				case constants.ACTIONS.CHEAT_POINT_BREAK:
+				case constants.ACTIONS.CHEAT_WHOS_YOUR_DADDY:
+				case constants.ACTIONS.CHEAT_THERE_IS_NO_SPOON:
+				case constants.ACTIONS.CHEAT_STRENGTH_AND_HONOR:
+				case constants.ACTIONS.CHEAT_IT_VEXES_ME:
+				case constants.ACTIONS.CHEAT_WHO_IS_JOHN_GALT:
+				case constants.ACTIONS.CHEAT_I_SEE_DEAD_PEOPLE:
+				case constants.ACTIONS.CHEAT_SYNERGY:
+				case constants.ACTIONS.CHEAT_SHARP_AND_SHINY:
+				case constants.ACTIONS.CHEAT_ALL_YOUR_BASE_ARE_BELONG_TO_US:
+				case constants.ACTIONS.PRE_SUBSELECTION:
+				case constants.ACTIONS.ESC_PRESSED:
+				case constants.ACTIONS.ENTER_CHOOSE_HERO_SKILL_SUBMENU:
+				case constants.ACTIONS.ENTER_CHOOSE_BUILDING_SUBMENU:
+					break;
+				case constants.ACTIONS.SET_GAME_SPEED:
+				case constants.ACTIONS.SELECT_GROUP:
+				case constants.ACTIONS.UNKNOWN_0X75:
+					buffer.read(1);
+					break;
+				case constants.ACTIONS.SAVE_GAME:
+					buffer.readUntil(NULL_STRING);
+					break;
+				case constants.ACTIONS.CHEAT_KEYER_SOZE:				
+				case constants.ACTIONS.CHEAT_LEAF_IT_TO_ME:				
+				case constants.ACTIONS.CHEAT_GREED_IS_GOOD:				
+				case constants.ACTIONS.REMOVE_UNIT_FROM_BUILDING_QUEUE:
+				case constants.ACTIONS.CHANGE_ALLY_OPTIONS:
+					buffer.read(5);
+					break;
+				case constants.ACTIONS.UNIT_ABILITY:
+					buffer.read(14);
+					break;
+				case constants.ACTIONS.UNIT_ABILITY_WITH_POS:
+					buffer.read(21);			
+					break;	
+				case constants.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET:
+					buffer.read(29);
+					break;
+				case constants.ACTIONS.GIVE_DROP_ITEM:
+					action.parseGiveDropItem(buffer);
+				case constants.ACTIONS.UNIT_ABILITY_2_POS_AND_2_ITEM:
+					buffer.read(42);
+					break;
+				case constants.ACTIONS.CHANGE_SELECTION:
+					action.parseChangeSelection(buffer);
+					break;
+				case constants.ACTIONS.ASSIGN_GROUP:
+					action.parseAssignGroup(buffer);
+					break;
+				case constants.ACTIONS.SELECT_SUBGROUP:
+				case constants.ACTIONS.SCENARIO_TRIGGER:
+				case constants.ACTIONS.MINIMAP_SIGNAL:
+					buffer.read(12);
+					break;
+				case constants.ACTIONS.UNKNOWN_0X1B:
+				case constants.ACTIONS.SELECT_GROUND_ITEM:
+				case constants.ACTIONS.TRANSFER_RESOURCES:
+					buffer.read(9);
+					break;
+				case constants.ACTIONS.UNKNOWN_0X21:
+				case constants.ACTIONS.CANCEL_HERO_REVIVAL:
+					buffer.read(8);
+					break;			
+				case constants.ACTIONS.CHEAT_DAYLIGHT_SAVINGS:
+				case constants.ACTIONS.SAVE_GAME_FINISHED:				
+					buffer.read(4);
+					break;
+				case constants.ACTIONS.MAP_TRIGGER_CHAT_COMMAND:
+					action.parseMapTriggerChatCommand(buffer);	
+					break;
+				case constants.ACTIONS.CONTINUE_GAME_BLOCK_A:
+				case constants.ACTIONS.CONTINUE_GAME_BLOCK_B:
+					buffer.read(16);
+					break;	
+				default:
+					throw Error("unknown actions : " + actionId);	
+			}
+		}
+	}
 }
 
+class Action {
+	parseGiveDropItem (buffer) {	
+		this.abilityFlags = new AbilityFlags(buffer);
+		this.itemId = buffer.read(4).toString("hex");
+		
+		buffer.read(8); // unknown
+		
+		this.targetX = buffer.read(4).toString("hex");
+		this.targetY = buffer.read(4).toString("hex");
 
-var parsers = {}
+		this.targetObjectId1 = buffer.read(4).toString("hex");
+		this.targetObjectId2 = buffer.read(4).toString("hex");
+
+		this.itemObjectId1 = buffer.read(4).toString("hex");
+		this.itemObjectId2 = buffer.read(4).toString("hex");
+	}
+
+	parseChangeSelection (buffer) {
+		this.selectMode = buffer.read(1).toString("hex");
+		this.parseGroupInfo(buffer);
+	}
+
+	parseAssignGroup (buffer) {
+		this.groupNumber = buffer.read(1).readUIntLE(0, 1);
+		this.parseGroupInfo(buffer); 
+	}
+
+	parseGroupInfo (buffer) {
+		this.numberOfUnits = buffer.read(2).readUIntLE(0, 2);
+
+		this.objectIds = [];
+
+		for (var i = 0; i < this.numberOfUnits; i++) {
+			this.objectIds.push({objectId1: buffer.read(4).toString("hex"), objectId2 : buffer.read(4).toString("hex")})
+		}
+	}
+
+	parseMapTriggerChatCommand (buffer) {
+		buffer.read(8); // unknown
+		this.chatCommand = buffer.readUntil(NULL_STRING).toString();
+	}
+}
+
+class AbilityFlags {
+	constructor (buffer) {
+		this.flags = buffer.read(2);
+	}
+}
+
 
 const NULL_STRING = '\0';
 
@@ -476,7 +663,8 @@ const constants = {
 		SECOND : 0x1b,
 		THIRD : 0x1c,
 		TIME_SLOT_OLD : 0x1E,
-		TIME_SLOT : 0x1F
+		TIME_SLOT : 0x1F,
+		CHECKSUM : 0x22
 	},
 	CHAT : {
 		FLAGS : {
@@ -484,43 +672,64 @@ const constants = {
 			NORMAL : 0x20,
 			START : 0x1A
 		} 
+	},
+	ACTIONS : {
+		PAUSE : 0x01,
+		RESUME : 0x02,
+		SET_GAME_SPEED : 0x03,
+		INCREASE_GAME_SPEED : 0x04,
+		DECREASE_GAME_SPEED : 0x05,
+		SAVE_GAME : 0x06,
+		SAVE_GAME_FINISHED : 0x07,
+		UNIT_ABILITY : 0x10,
+		UNIT_ABILITY_WITH_POS : 0x11,
+		UNIT_ABILITY_WITH_POS_AND_TARGET : 0x12,
+		GIVE_DROP_ITEM : 0x13,
+		UNIT_ABILITY_2_POS_AND_2_ITEM : 0x14,
+		CHANGE_SELECTION : 0x16,
+		ASSIGN_GROUP : 0x17,
+		SELECT_GROUP : 0x18,
+		SELECT_SUBGROUP : 0x19,
+		PRE_SUBSELECTION : 0x1A,
+		UNKNOWN_0X1B : 0x1B,
+		SELECT_GROUND_ITEM : 0x1C,
+		CANCEL_HERO_REVIVAL : 0x1D,
+		REMOVE_UNIT_FROM_BUILDING_QUEUE : 0x1E,
+		UNKNOWN_0X21 : 0X21,
+		CHEAT_THE_DUDE_ABIDES : 0X20,
+		CHEAT_SOMEBODY_SET_US_UP_THE_BOMB : 0X22,
+		CHEAT_WARPTEN : 0X23,
+		CHEAT_IOCAINE_POWDER : 0X24,
+		CHEAT_POINT_BREAK: 0X25,
+		CHEAT_WHOS_YOUR_DADDY : 0X26,
+		CHEAT_KEYER_SOZE : 0X27,
+		CHEAT_LEAF_IT_TO_ME : 0X28,
+		CHEAT_THERE_IS_NO_SPOON : 0X29,
+		CHEAT_STRENGTH_AND_HONOR : 0X2A,
+		CHEAT_IT_VEXES_ME : 0X2B,
+		CHEAT_WHO_IS_JOHN_GALT : 0X2C,
+		CHEAT_GREED_IS_GOOD : 0X2D,
+		CHEAT_DAYLIGHT_SAVINGS : 0X2E,
+		CHEAT_I_SEE_DEAD_PEOPLE : 0X2F,
+		CHEAT_SYNERGY : 0X30,
+		CHEAT_SHARP_AND_SHINY : 0X31,
+		CHEAT_ALL_YOUR_BASE_ARE_BELONG_TO_US : 0X32,
+		CHANGE_ALLY_OPTIONS : 0X50,
+		TRANSFER_RESOURCES : 0X51,
+		MAP_TRIGGER_CHAT_COMMAND : 0X60,
+		ESC_PRESSED : 0X61,
+		SCENARIO_TRIGGER : 0X62,
+		ENTER_CHOOSE_HERO_SKILL_SUBMENU : 0X66,
+		ENTER_CHOOSE_BUILDING_SUBMENU : 0X67,
+		MINIMAP_SIGNAL : 0X68,
+		CONTINUE_GAME_BLOCK_B : 0X69,
+		CONTINUE_GAME_BLOCK_A : 0X6A,
+		UNKNOWN_0X75 : 0X75
 	}
 }
 
-parsers[constants.BLOCK_TYPE.FIRST] = parsers[constants.BLOCK_TYPE.SECOND] = parsers[constants.BLOCK_TYPE.THIRD] = function (buffer) {
-	buffer.read(5); // unknown
-}
-
-parsers[constants.BLOCK_TYPE.TIME_SLOT_OLD] = parsers[constants.BLOCK_TYPE.TIME_SLOT] = function (buffer) {
-	console.log("gg")
-	var words = buffer.read(2).readUIntLE(0, 2);
-	this.timeIncrement = buffer.read(2).readUIntLE(0, 2);
-	this.actions = []
-
-	var counter =  0;
-
-	while (counter < words - 2) {
-		var actionBlock = new ActionBlock(buffer);
-		counter += actionBlock.length + 3;
-		this.actions.push(actionBlock);
-	}
-
-	console.log("sadsadd", this, words)
-
-}
-
-parsers[constants.BLOCK_TYPE.CHAT] = function (buffer) {
-	this.playerId = buffer.read(1).readUIntLE(0, 1);
-	buffer.read(2); // bytes that follow
-	this.flags = buffer.read(1).toString("hex");
-
-	if (this.flags == constants.CHAT.FLAGS.NORMAL) {
-		this.mode = buffer.read(4).toString("hex");
-	}
-
-	this.message = buffer.readUntil(NULL_STRING).toString();
-
-	console.log(this, "chat")
+function assert(bool, message) {
+	if (!bool) throw Error(message);
 }
 
 
