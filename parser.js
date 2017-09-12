@@ -431,7 +431,7 @@ class ActionBlock {
 
 		var bufferIdx = buffer.idx;
 
-		while (buffer.idx - bufferIdx < this.length) {
+		while (buffer.idx - bufferIdx  < this.length) {
 			var actionId = buffer.read(1).readUIntLE(0, 1);
 			var action = new Action();
 			switch (actionId) {
@@ -459,7 +459,6 @@ class ActionBlock {
 				case constants.ACTIONS.ENTER_CHOOSE_BUILDING_SUBMENU:
 					break;
 				case constants.ACTIONS.SET_GAME_SPEED:
-				case constants.ACTIONS.SELECT_GROUP:
 				case constants.ACTIONS.UNKNOWN_0X75:
 					buffer.read(1);
 					break;
@@ -477,15 +476,15 @@ class ActionBlock {
 					buffer.read(14);
 					break;
 				case constants.ACTIONS.UNIT_ABILITY_WITH_POS:
-					buffer.read(21);			
+					buffer.read(22);
 					break;	
 				case constants.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET:
-					buffer.read(29);
+					buffer.read(30); 
 					break;
 				case constants.ACTIONS.GIVE_DROP_ITEM:
 					action.parseGiveDropItem(buffer);
 				case constants.ACTIONS.UNIT_ABILITY_2_POS_AND_2_ITEM:
-					buffer.read(42);
+					buffer.read(43);
 					break;
 				case constants.ACTIONS.CHANGE_SELECTION:
 					action.parseChangeSelection(buffer);
@@ -518,6 +517,9 @@ class ActionBlock {
 				case constants.ACTIONS.CONTINUE_GAME_BLOCK_B:
 					buffer.read(16);
 					break;	
+				case constants.ACTIONS.SELECT_GROUP:
+					buffer.read(2);
+					break;
 				default:
 					throw Error("unknown actions : " + actionId);	
 			}
