@@ -36,7 +36,7 @@ class Parser {
 		this.checkSumBuffer += buffer.toString('hex');
 		this.header = new Header(buffer);
 
-		console.log(this.header);
+		//console.log(this.header);
 		
 	}
 
@@ -46,7 +46,7 @@ class Parser {
 		this.checkSumBuffer += buffer.toString('hex').slice(0, -8) + '00000000';
 		this.subHeader = new Subheader(buffer, this.header.version);
 
-		console.log(this.subHeader)		
+		//console.log(this.subHeader)		
 	}
 
 	parseBlocks () {
@@ -59,7 +59,7 @@ class Parser {
 		if (idx == 0) {
 			this.startUpData = new StartupBlock(this);
 		} else {
-			this.blockData.push(new DataBlock(this));
+			//this.blockData.push(new DataBlock(this));
 		}
 	}
 
@@ -291,7 +291,7 @@ class StartupBlock extends Block {
 		this.parsePlayers(buffer);
 		this.gameStartRecord = new GameStartRecord(buffer);
 
-		this.parseDataBlocks(buffer);
+		//this.parseDataBlocks(buffer);
 	}
 
 	parsePlayers (buffer) {
@@ -301,6 +301,8 @@ class StartupBlock extends Block {
 			this.players.push(new PlayerRecord(buffer));
 			buffer.read(4); // unknown
 		}
+
+
 	}
 
 	decode (encoded) {
@@ -739,11 +741,14 @@ var fs = require('fs');
 var crc32 = require('js-crc').crc32;
 const zlib = require('zlib');
 
-
+/*
 var readable = fs.createReadStream("replay.w3g");
 
 readable.on('readable', function() {
 	var parser = new Parser(readable);
 
 	parser.parse();
-})
+})*/
+
+
+module.exports = Parser
