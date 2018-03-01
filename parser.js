@@ -22,6 +22,7 @@ class Parser {
 		this.parseActions = parseActions;
 		this.keepParsing = true;
 		this.time = 0;
+		this.players = {}
 	}
 
 	parse () {
@@ -45,6 +46,18 @@ class Parser {
 	}
 
 	emitEvent (event, data) {
+			
+		if (data.data || data.buffer) {
+			data = Object.assign({}, data)
+
+			delete data.parser;
+			delete data.buffer;
+		}
+
+		if (data.playerId) {
+			data.player = this.getPlayer(data.playerId)
+		}
+
 		this.emitEventToListeners(event, data);
 		this.emitEventToListeners("all", data);
 	}
@@ -93,6 +106,15 @@ class Parser {
 
 	addTime(time) {
 		this.time += time;
+	}
+
+	getTime () {
+		var secs = Math.floor(this.time / 1000); 
+		return ("0" + Math.floor(secs / 60)).slice(-2) +  ":" + ("0" + secs % 60).slice(-2);
+	}
+
+	getPlayer(playerId) {
+		return this.players[playerId].name;
 	}
 
 }
@@ -263,40 +285,17 @@ class Subheader {
 
 }
 
+class Block {
 
-class BlockParser {
-	
 	constructor (buffer, parser) {
+		this.buffer = buffer;
 		this.parser = parser;
-		this.parse(buffer)
-	}	
-
-	parse (buffer) {
-		while (this.parser.keepParsing) {
-			this.type = Utils.fromHex(buffer.read(1).toString("hex"));
-
-			if (this.type == 0) return;
-			
-			if ([constants.BLOCK_TYPE.FIRST, constants.BLOCK_TYPE.SECOND, constants.BLOCK_TYPE.THIRD].includes(this.type)) {
-				assert(buffer.peek(4).toString("hex") == '01000000', 'Invalid start blocks : ' + buffer.read(4).toString("hex"));
-			} else if ([constants.BLOCK_TYPE.TIME_SLOT_OLD, constants.BLOCK_TYPE.TIME_SLOT].includes(this.type)) {
-				this.parseTimeSlot(buffer);
-			} else if (this.type == constants.BLOCK_TYPE.CHAT) {
-				this.parseChat(buffer);
-			} else if (this.type == constants.BLOCK_TYPE.CHECKSUM) {
-				var bytesThatFollow = buffer.read(1).readUIntLE(0, 1);
-				buffer.read(bytesThatFollow); // unknown
-			} else if (this.type == constants.BLOCK_TYPE.LEAVE_GAME) {
-				this.parseLeaveGame(buffer);
-			} else {
-				throw Error("unknow how to parse " + this.type)
-			}
-
-			this.parser.emitEvent(constants.EVENTS.PARSED.BLOCK, this.type)
-		}		
 	}
 
-	parseTimeSlot (buffer) {
+
+	parseTimeSlot () {
+		var buffer = this.buffer;
+
 		var bytes = buffer.read(2).readUIntLE(0, 2);
 		var timeIncrement = buffer.read(2).readUIntLE(0, 2);
 		var actions = []
@@ -317,21 +316,29 @@ class BlockParser {
 	}
 
 	parseChat (buffer) {
+		var buffer = this.buffer;
+
 		this.playerId = buffer.read(1).readUIntLE(0, 1);
 		var messageLength = buffer.read(2).readUIntLE(0, 2) - 1; // bytes that follow
 		
-		this.flags = buffer.read(1).toString("hex");
+		this.flags = buffer.read(1).readUIntLE(0, 1);
 
 		if (this.flags == constants.CHAT.FLAGS.NORMAL) {
-			this.mode = buffer.read(4).toString("hex");
+			this.mode = buffer.read(4).readUIntLE(0, 4);
 			messageLength -= 4;
 		}
 
-		this.message = buffer.read(messageLength).toString();
+		this.message = buffer.readUntil(NULL_STRING).toString();
+
+		this.player = this.parser.getPlayer(this.playerId)
+				
+		this.parser.emitEvent(constants.EVENTS.PARSED.CHAT, this)
 
 	}
 
 	parseLeaveGame(buffer) {
+		var buffer = this.buffer;
+
 		var reason = buffer.read(2).readUIntLE(0, 2);
 
 		if (this.reason == constants.LEAVE_GAME_REASON.CLOSED_BY_REMOTE_GAME) {
@@ -348,7 +355,44 @@ class BlockParser {
 
 		buffer.read(8); // unknown
 
+		this.parser.emitEvent(constants.EVENTS.PARSED.LEFT_GAME, this)
 
+	}
+
+}
+
+class BlockParser {
+	
+	constructor (buffer, parser) {
+		this.parser = parser;
+		this.parse(buffer)
+	}	
+
+	parse (buffer) {
+		while (this.parser.keepParsing) {
+			this.type = Utils.fromHex(buffer.read(1).toString("hex"));
+
+			if (this.type == 0) return;
+			
+			var block = new Block(buffer, this.parser);
+
+			if ([constants.BLOCK_TYPE.FIRST, constants.BLOCK_TYPE.SECOND, constants.BLOCK_TYPE.THIRD].includes(this.type)) {
+				assert(buffer.peek(4).toString("hex") == '01000000', 'Invalid start blocks : ' + buffer.read(4).toString("hex"));
+			} else if ([constants.BLOCK_TYPE.TIME_SLOT_OLD, constants.BLOCK_TYPE.TIME_SLOT].includes(this.type)) {
+				block.parseTimeSlot();
+			} else if (this.type == constants.BLOCK_TYPE.CHAT) {
+				block.parseChat();
+			} else if (this.type == constants.BLOCK_TYPE.CHECKSUM) {
+				var bytesThatFollow = buffer.read(1).readUIntLE(0, 1);
+				buffer.read(bytesThatFollow); // unknown
+			} else if (this.type == constants.BLOCK_TYPE.LEAVE_GAME) {
+				block.parseLeaveGame();
+			} else {
+				throw Error("unknow how to parse " + this.type)
+			}
+
+			this.parser.emitEvent(constants.EVENTS.PARSED.BLOCK, this.type)
+		}		
 	}
 
 }
@@ -361,8 +405,8 @@ class StartupBlock {
 
 	parse (buffer, parser) {
 		buffer.read(4); // unknown
-		this.playerRecord = new PlayerRecord(buffer);
-		
+		this.playerRecord = new PlayerRecord(buffer, parser);
+
 		this.gameName = buffer.readUntil(NULL_STRING).toString();
 		buffer.read(1); // Nullbyte
 
@@ -385,21 +429,20 @@ class StartupBlock {
 
 		this.languageId = buffer.read(4);
 
-		this.parsePlayers(buffer);
+		this.parsePlayers(buffer, parser);
 		this.gameStartRecord = new GameStartRecord(buffer);
 
 		parser.emitEvent(constants.EVENTS.PARSED.STARTUP_BLOCK, this)
 
 	}
 
-	parsePlayers (buffer) {
+	parsePlayers (buffer, parser) {
 		this.players = [];
 
 		while (buffer.peek(1).readUIntLE(0, 1) == constants.PLAYER_TYPE.ADDITIONAL_PLAYERS) {
-			this.players.push(new PlayerRecord(buffer));
+			this.players.push(new PlayerRecord(buffer, parser));
 			buffer.read(4); // unknown
 		}
-
 
 	}
 
@@ -420,7 +463,7 @@ class StartupBlock {
 
 class PlayerRecord {
 
-	constructor (buffer) {
+	constructor (buffer, parser) {
 		this.type = buffer.read(1).toString("hex");
 		this.id = buffer.read(1).readUIntLE(0, 1);
 
@@ -434,6 +477,8 @@ class PlayerRecord {
 		} else {
 			buffer.read(1); // null
 		}
+
+		parser.players[this.id] = this;
 
 	}
 
@@ -532,9 +577,14 @@ class CommandBlock {
 
 		var bytesRead = buffer.bytesRead;
 
+		if (parser.parseActions == false) {
+			buffer.read(this.length);
+			return;
+		}
+
 		while (buffer.bytesRead - bytesRead  < this.length && parser.keepParsing) {
 			var actionId = buffer.read(1).readUIntLE(0, 1);
-			var action = new Action(buffer, parser);
+			var action = new Action(buffer, parser, this.playerId);
 
 			switch (actionId) {
 				case constants.ACTIONS.PAUSE:
@@ -634,9 +684,10 @@ class CommandBlock {
 
 
 class Action {
-	constructor (buffer, parser) {
+	constructor (buffer, parser, playerId) {
 		this.buffer = buffer;
 		this.parser = parser;
+		this.playerId = playerId;
 	}
 
 	parseGiveDropItem () {	
@@ -796,6 +847,23 @@ const constants = {
 			DELAYED : 0x10,	
 			NORMAL : 0x20,
 			START : 0x1A
+		},
+		MODES : {
+			ALL: 0x00,
+			ALLIES: 0x01,
+			OBSERVER: 0x02,
+			PLAYER1: 0x03,
+			PLAYER2: 0x04,
+			PLAYER3: 0x05,
+			PLAYER4: 0x06,
+			PLAYER5: 0x07,
+			PLAYER6: 0x08,
+			PLAYER7: 0x09,
+			PLAYER8: 0x0A,
+			PLAYER9: 0x0B,
+			PLAYER10: 0x0C,
+			PLAYER11: 0x0D,
+			PLAYER12: 0x0E,
 		} 
 	},
 	ACTIONS : {
@@ -864,6 +932,8 @@ const constants = {
 			TIME_SLOT: "parsed-time-slot",
 			BLOCK: "parsed-block",
 			ACTION: "parsed-action",
+			CHAT: "parsed-chat",
+			LEFT_GAME: "parsed-left-game"
 		},
 		ACTIONS: {
 			MAP_TRIGGER_CHAT_COMMAND: "map-trigger-chat-command",
