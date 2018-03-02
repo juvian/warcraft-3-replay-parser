@@ -47,7 +47,7 @@ class Parser {
 
 	emitEvent (event, data) {
 			
-		if (data.data || data.buffer) {
+		if (data.parser || data.buffer) {
 			data = Object.assign({}, data)
 
 			delete data.parser;
@@ -585,6 +585,7 @@ class CommandBlock {
 		while (buffer.bytesRead - bytesRead  < this.length && parser.keepParsing) {
 			var actionId = buffer.read(1).readUIntLE(0, 1);
 			var action = new Action(buffer, parser, this.playerId);
+			action.actionId = actionId;
 
 			switch (actionId) {
 				case constants.ACTIONS.PAUSE:
@@ -622,22 +623,22 @@ class CommandBlock {
 				case constants.ACTIONS.CHEAT_GREED_IS_GOOD:				
 				case constants.ACTIONS.REMOVE_UNIT_FROM_BUILDING_QUEUE:
 				case constants.ACTIONS.CHANGE_ALLY_OPTIONS:
-					buffer.read(5);
+					action.data = buffer.read(5);
 					break;
 				case constants.ACTIONS.UNIT_ABILITY:
-					buffer.read(14);
+					action.parseUnitAbility()
 					break;
 				case constants.ACTIONS.UNIT_ABILITY_WITH_POS:
-					buffer.read(22);
+					action.data = buffer.read(22);
 					break;	
 				case constants.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET:
-					buffer.read(30); 
+					action.parseUnitAbilityWithPosAndTarget()
 					break;
 				case constants.ACTIONS.GIVE_DROP_ITEM:
 					action.parseGiveDropItem();
 					break;
 				case constants.ACTIONS.UNIT_ABILITY_2_POS_AND_2_ITEM:
-					buffer.read(43);
+					action.data = buffer.read(43);
 					break;
 				case constants.ACTIONS.CHANGE_SELECTION:
 					action.parseChangeSelection();
@@ -648,36 +649,38 @@ class CommandBlock {
 				case constants.ACTIONS.SELECT_SUBGROUP:
 				case constants.ACTIONS.SCENARIO_TRIGGER:
 				case constants.ACTIONS.MINIMAP_SIGNAL:
-					buffer.read(12);
+					action.data = buffer.read(12);
 					break;
 				case constants.ACTIONS.UNKNOWN_0X1B:
-				case constants.ACTIONS.SELECT_GROUND_ITEM:
 				case constants.ACTIONS.TRANSFER_RESOURCES:
-					buffer.read(9);
+					action.data = buffer.read(9);
+					break;
+				case constants.ACTIONS.SELECT_GROUND_ITEM:
+					action.parseSelectGroundItem();
 					break;
 				case constants.ACTIONS.UNKNOWN_0X21:
 				case constants.ACTIONS.CANCEL_HERO_REVIVAL:
-					buffer.read(8);
+					action.data = buffer.read(8);
 					break;			
 				case constants.ACTIONS.CHEAT_DAYLIGHT_SAVINGS:
 				case constants.ACTIONS.SAVE_GAME_FINISHED:				
-					buffer.read(4);
+					action.data = buffer.read(4);
 					break;
 				case constants.ACTIONS.MAP_TRIGGER_CHAT_COMMAND:
 					action.parseMapTriggerChatCommand();	
 					break;
 				case constants.ACTIONS.CONTINUE_GAME_BLOCK_A:
 				case constants.ACTIONS.CONTINUE_GAME_BLOCK_B:
-					buffer.read(16);
+					action.data = buffer.read(16);
 					break;	
 				case constants.ACTIONS.SELECT_GROUP:
-					buffer.read(2);
+					action.data = buffer.read(2);
 					break;
 				default:
 					throw Error("unknown actions : " + actionId);	
 			}
 
-			parser.emitEvent(constants.EVENTS.PARSED.ACTION, actionId, action)
+			parser.emitEvent(constants.EVENTS.PARSED.ACTION, action)
 		}
 	}
 }
@@ -742,6 +745,43 @@ class Action {
 
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.MAP_TRIGGER_CHAT_COMMAND, this)
 	}
+
+	parseUnitAbility () {
+		this.abilityFlags = new AbilityFlags(this.buffer)
+
+		this.itemId = this.buffer.read(4)
+
+		this.buffer.read(8) // unknown
+		
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.UNIT_ABILITY, this)
+	}
+
+	parseSelectGroundItem () {
+		this.abilityFlags = new AbilityFlags(this.buffer)
+		
+		this.itemObjectId1 = buffer.read(4).toString("hex");
+		this.itemObjectId2 = buffer.read(4).toString("hex");	
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.SELECT_GROUND_ITEM, this)
+	}
+
+	parseUnitAbilityWithPosAndTarget () {
+		this.abilityFlags = new AbilityFlags(this.buffer)
+		this.itemId = this.buffer.read(4)
+
+		this.buffer.read(8)	; // unknown
+		
+		this.targetX = this.buffer.read(4).readUIntLE(0, 4)	
+		this.targetY = this.buffer.read(4).readUIntLE(0, 4)	
+
+
+		this.objectId1 = this.buffer.read(4).readUIntLE(0, 4)	
+		this.objectId2 = this.buffer.read(4).readUIntLE(0, 4)	
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET, this)
+
+	}
+
 }
 
 class AbilityFlags {
@@ -939,7 +979,10 @@ const constants = {
 			MAP_TRIGGER_CHAT_COMMAND: "map-trigger-chat-command",
 			ITEM: "item",
 			CHANGE_SELECTION: "change-selection",
-			SELECT_GROUP: "select-group"
+			SELECT_GROUP: "select-group",
+			UNIT_ABILITY: "unit-ability",
+			SELECT_GROUND_ITEM: "select-ground-item",
+			UNIT_ABILITY_WITH_POS_AND_TARGET: "unit-ability-with-pos-and-target"
 		}
 	}
 }

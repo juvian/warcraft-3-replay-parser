@@ -39,11 +39,15 @@ function testParsesChatCorrectly () {
 }
 
 function testItems () {
-	var parser = new Parser("frozen.w3g", true);
+	var parser = new Parser("test.w3g", true);
 	//I0JM = 1227901517 = 49304a4d cursed staff
 	//49304a58 = legendary wep creation
-	parser.addEventListener(constants.EVENTS.ACTIONS.ITEM, function(data) {
+	parser.addEventListener(constants.EVENTS.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET, function(data) {
 		console.log(data)
+	})
+
+	parser.addEventListener(constants.EVENTS.PARSED.ACTION, function(data) {
+		//console.log(data)
 	})
 
 	parser.parse()
@@ -59,7 +63,7 @@ function assert(bool, message) {
 }
 
 
-/*testParsedBlocksCorrectly();
-testParsesChatCorrectly()*/
-testItems()
+testParsedBlocksCorrectly();
+testParsesChatCorrectly()
+//testItems()
 
