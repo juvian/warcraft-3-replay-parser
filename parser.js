@@ -8,11 +8,11 @@ const zlib = require('zlib');
 class Parser {
 
 
-	constructor(buffer, parseActions = false) {
+	constructor(buffer, parseActions = false, parseBlocks = true) {
 
 		if (typeof buffer == 'string') {
 			this.buffer = new BufferWrapper(fs.readFileSync(buffer));
-		} else if (typeof buffer  == Buffer) {
+		} else if (buffer instanceof Buffer) {
 			this.buffer = new BufferWrapper(buffer);
 		} else {
 			throw Error("Invalid buffer, expected path to file or buffer of file")
@@ -23,6 +23,7 @@ class Parser {
 		this.keepParsing = true;
 		this.time = 0;
 		this.players = {}
+		this.parseBlocks = parseBlocks;
 	}
 
 	parse () {
@@ -91,7 +92,7 @@ class Parser {
 
 		this.startUpData = new StartupBlock(onDemandBuffer, this)
 
-		if (!this.keepParsing) return;
+		if (!this.keepParsing || !this.parseBlocks) return;
 		
 		new BlockParser(onDemandBuffer, this)
 	}
