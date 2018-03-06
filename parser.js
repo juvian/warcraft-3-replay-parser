@@ -8,7 +8,7 @@ const zlib = require('zlib');
 class Parser {
 
 
-	constructor(buffer, parseActions = false, parseBlocks = true) {
+	constructor(buffer, parseActions = false, shouldParseBlocks = false) {
 
 		if (typeof buffer == 'string') {
 			this.buffer = new BufferWrapper(fs.readFileSync(buffer));
@@ -23,7 +23,7 @@ class Parser {
 		this.keepParsing = true;
 		this.time = 0;
 		this.players = {}
-		this.parseBlocks = parseBlocks;
+		this.shouldParseBlocks = shouldParseBlocks;
 	}
 
 	parse () {
@@ -92,7 +92,7 @@ class Parser {
 
 		this.startUpData = new StartupBlock(onDemandBuffer, this)
 
-		if (!this.keepParsing || !this.parseBlocks) return;
+		if (!this.keepParsing || !this.shouldParseBlocks) return;
 		
 		new BlockParser(onDemandBuffer, this)
 	}

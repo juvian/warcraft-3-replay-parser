@@ -13,18 +13,17 @@ files.filter(v => v != "TempReplay.w3g").sort(function(a, b) {
 
 
 files.forEach(function(file){
-	var parser = new Parser(fs.readFileSync(dir + file), false, true);
+	var parser = new Parser(fs.readFileSync(dir + file));
 
 	try{
 		parser.parse();
-	} catch (ex) {return}
+	} catch (ex) {console.log(ex);return}
 
 	var map = parser.startUpData.map
 	var players = parser.startUpData.players
 
-	if (map.indexOf("hm") != -1) {
-		var user = "Missmydeathwing"
-
+	if (map.indexOf("HM") != -1) {
+		var user = "deathwing"
 		var matches = players.filter(v => v.name.toLowerCase().indexOf(user.substring(1).toLowerCase()) != -1)
 
 		if (matches.length) {
