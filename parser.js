@@ -431,6 +431,7 @@ class StartupBlock {
 		this.languageId = buffer.read(4);
 
 		this.parsePlayers(buffer, parser);
+		console.log(this)
 		this.gameStartRecord = new GameStartRecord(buffer);
 
 		parser.emitEvent(constants.EVENTS.PARSED.STARTUP_BLOCK, this)
@@ -476,7 +477,7 @@ class PlayerRecord {
 			this.runTime = buffer.read(4).readUIntLE(0, 3);
 			this.race = buffer.read(4).toString('hex');
 		} else {
-			buffer.read(1); // null
+			buffer.read(this.additionalDataSize); // null
 		}
 
 		parser.players[this.id] = this;
@@ -522,6 +523,7 @@ class GameSettings {
 
 class GameStartRecord {
 	constructor (buffer) {
+		console.log(buffer.peek(100))
 		if(buffer.read(1).toString("hex") != '19') throw new Error("invalid recordID"); 
 
 		var bytes = buffer.read(2).readUIntLE(0, 2);
