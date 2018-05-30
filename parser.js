@@ -60,6 +60,10 @@ class Parser {
 			data.player = this.getPlayer(data.playerId)
 		}
 
+		if (data.receivingPlayerId) {
+			data.receivingPlayer = this.getPlayer(data.receivingPlayerId)
+		}
+
 		this.emitEventToListeners(event, data);
 		this.emitEventToListeners("all", data);
 	}
@@ -655,8 +659,10 @@ class CommandBlock {
 					action.data = buffer.read(12);
 					break;
 				case constants.ACTIONS.UNKNOWN_0X1B:
-				case constants.ACTIONS.TRANSFER_RESOURCES:
 					action.data = buffer.read(9);
+					break;
+				case constants.ACTIONS.TRANSFER_RESOURCES:
+					action.parseTransferResources();
 					break;
 				case constants.ACTIONS.SELECT_GROUND_ITEM:
 					action.parseSelectGroundItem();
@@ -803,6 +809,12 @@ class Action {
 		this.checksum = this.buffer.readUntil(NULL_STRING)
 		this.secondChecksum = this.buffer.readUntil(NULL_STRING)
 		this.weakChecksum = this.buffer.read(4)
+	}
+
+	parseTransferResources () {
+		this.receivingPlayerId = this.buffer.read(1).readUIntLE(0, 1);
+		this.gold = this.buffer.read(4).readUIntLE(0, 4);
+		this.lumber = this.buffer.read(4).readUIntLE(0, 4);
 	}
 
 }
