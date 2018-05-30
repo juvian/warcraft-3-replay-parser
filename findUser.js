@@ -23,7 +23,7 @@ files.forEach(function(file){
 	var players = parser.startUpData.players
 
 	if (map.indexOf("HM") != -1) {
-		var user = "deathwing"
+		var user = "Aethael"
 		var matches = players.filter(v => v.name.toLowerCase().indexOf(user.substring(1).toLowerCase()) != -1)
 
 		if (matches.length) {

@@ -310,6 +310,7 @@ class Block {
 		}
 
 		if (buffer.bytesRead - bytesRead != bytes - 2) {
+			console.log(actions, bytes, buffer.bytesRead - bytesRead)
 			throw Error("Error parsing actions")
 		}
 
@@ -431,7 +432,6 @@ class StartupBlock {
 		this.languageId = buffer.read(4);
 
 		this.parsePlayers(buffer, parser);
-		console.log(this)
 		this.gameStartRecord = new GameStartRecord(buffer);
 
 		parser.emitEvent(constants.EVENTS.PARSED.STARTUP_BLOCK, this)
@@ -523,7 +523,6 @@ class GameSettings {
 
 class GameStartRecord {
 	constructor (buffer) {
-		console.log(buffer.peek(100))
 		if(buffer.read(1).toString("hex") != '19') throw new Error("invalid recordID"); 
 
 		var bytes = buffer.read(2).readUIntLE(0, 2);
@@ -760,10 +759,10 @@ class Action {
 	}
 
 	parseSelectGroundItem () {
-		this.abilityFlags = new AbilityFlags(this.buffer)
+		this.abilityFlags = this.buffer.read(1) //new AbilityFlags(this.buffer)
 		
-		this.itemObjectId1 = buffer.read(4).toString("hex");
-		this.itemObjectId2 = buffer.read(4).toString("hex");	
+		this.itemObjectId1 = this.buffer.read(4).toString("hex");
+		this.itemObjectId2 = this.buffer.read(4).toString("hex");	
 
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.SELECT_GROUND_ITEM, this)
 	}
