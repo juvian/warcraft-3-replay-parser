@@ -8,7 +8,7 @@ const zlib = require('zlib');
 class Parser {
 
 
-	constructor(buffer, parseActions = false, shouldParseBlocks = false) {
+	constructor(buffer, parseActions = false, shouldParseBlocks = false, ignoreUnknown = false) {
 
 		if (typeof buffer == 'string') {
 			this.buffer = new BufferWrapper(fs.readFileSync(buffer));
@@ -24,6 +24,7 @@ class Parser {
 		this.time = 0;
 		this.players = {}
 		this.shouldParseBlocks = shouldParseBlocks;
+		this.ignoreUnknown = ignoreUnknown;
 	}
 
 	parse () {
@@ -678,8 +679,21 @@ class CommandBlock {
 				case constants.ACTIONS.SELECT_GROUP:
 					action.data = buffer.read(2);
 					break;
+				case constants.ACTIONS.SYNC_INTEGER:
+				case constants.ACTIONS.UNKNOWN_0X6D:
+					action.parseSyncInteger();
+					break;	
 				default:
-					throw Error("unknown actions : " + actionId);	
+
+					action.data = buffer.peek(this.length - (buffer.bytesRead - bytesRead));
+
+					parser.emitEvent(constants.EVENTS.ACTIONS.UNKNOWN, action);
+
+					if (parser.ignoreUnknown) {
+						buffer.read(this.length - (buffer.bytesRead - bytesRead));
+					} else {
+						throw Error("unknown actions : " + actionId);	
+					}
 			}
 
 			parser.emitEvent(constants.EVENTS.PARSED.ACTION, action)
@@ -782,6 +796,13 @@ class Action {
 
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET, this)
 
+	}
+
+	parseSyncInteger () {
+		this.name = this.buffer.readUntil(NULL_STRING).toString();
+		this.checksum = this.buffer.readUntil(NULL_STRING)
+		this.secondChecksum = this.buffer.readUntil(NULL_STRING)
+		this.weakChecksum = this.buffer.read(4)
 	}
 
 }
@@ -959,7 +980,9 @@ const constants = {
 		MINIMAP_SIGNAL : 0X68,
 		CONTINUE_GAME_BLOCK_B : 0X69,
 		CONTINUE_GAME_BLOCK_A : 0X6A,
-		UNKNOWN_0X75 : 0X75
+		UNKNOWN_0X75 : 0X75,
+		SYNC_INTEGER: 0x6B,
+		UNKNOWN_0X6D: 0x6D 
 	},
 	LEAVE_GAME_REASON: {
 		CLOSED_BY_REMOTE_GAME: 0x01,
@@ -984,7 +1007,8 @@ const constants = {
 			SELECT_GROUP: "select-group",
 			UNIT_ABILITY: "unit-ability",
 			SELECT_GROUND_ITEM: "select-ground-item",
-			UNIT_ABILITY_WITH_POS_AND_TARGET: "unit-ability-with-pos-and-target"
+			UNIT_ABILITY_WITH_POS_AND_TARGET: "unit-ability-with-pos-and-target",
+			UNKNOWN: "unknown"
 		}
 	}
 }
