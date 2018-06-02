@@ -41,9 +41,9 @@ class Parser {
 		this.listeners[event].push(callback)
 	}
 
-	emitEventToListeners (event, data) {
+	emitEventToListeners (event, data, realEvent) {
 		if (this.listeners.hasOwnProperty(event)) {
-			this.listeners[event].forEach(c => c(data, event))
+			this.listeners[event].forEach(c => c(data, realEvent || event))
 		}
 	}
 
@@ -65,7 +65,7 @@ class Parser {
 		}
 
 		this.emitEventToListeners(event, data);
-		this.emitEventToListeners("all", data);
+		this.emitEventToListeners("all", data, event);
 	}
 
 	stopParse () {
