@@ -23,6 +23,7 @@ class Parser {
 		this.keepParsing = true;
 		this.time = 0;
 		this.players = {}
+		this.playerSlots = []
 		this.shouldParseBlocks = shouldParseBlocks;
 		this.ignoreUnknown = ignoreUnknown;
 	}
@@ -61,7 +62,7 @@ class Parser {
 		}
 
 		if (data.receivingPlayerId) {
-			data.receivingPlayer = this.getPlayer(data.receivingPlayerId)
+			data.receivingPlayer = this.getPlayerSlot(data.receivingPlayerId)
 		}
 
 		this.emitEventToListeners(event, data);
@@ -123,6 +124,10 @@ class Parser {
 		return this.players[playerId].name;
 	}
 
+	getPlayerSlot(playerSlot) {
+		return this.playerSlots[playerSlot - 1].name;
+	}
+
 }
 
 class BlockReader {
@@ -158,10 +163,6 @@ class BlockReader {
 }
 
 class EmptySource {
-	constructor () {
-
-	}
-
 	hasMoreData() {
 		return false;
 	}
@@ -391,7 +392,7 @@ class BlockParser {
 				block.parseChat();
 			} else if (this.type == constants.BLOCK_TYPE.CHECKSUM) {
 				var bytesThatFollow = buffer.read(1).readUIntLE(0, 1);
-				buffer.read(bytesThatFollow); // unknown
+				this.parser.emitEvent(constants.EVENTS.PARSED.CHECKSUM, buffer.read(bytesThatFollow));
 			} else if (this.type == constants.BLOCK_TYPE.LEAVE_GAME) {
 				block.parseLeaveGame();
 			} else {
@@ -486,6 +487,7 @@ class PlayerRecord {
 		}
 
 		parser.players[this.id] = this;
+		parser.playerSlots.push(this.id);
 
 	}
 
@@ -636,7 +638,7 @@ class CommandBlock {
 					action.parseUnitAbility()
 					break;
 				case constants.ACTIONS.UNIT_ABILITY_WITH_POS:
-					action.data = buffer.read(22);
+					action.parseUnitAbilityWithPos();
 					break;	
 				case constants.ACTIONS.UNIT_ABILITY_WITH_POS_AND_TARGET:
 					action.parseUnitAbilityWithPosAndTarget()
@@ -645,7 +647,7 @@ class CommandBlock {
 					action.parseGiveDropItem();
 					break;
 				case constants.ACTIONS.UNIT_ABILITY_2_POS_AND_2_ITEM:
-					action.data = buffer.read(43);
+					action.parseUnitAbilityWithPosAndItem()
 					break;
 				case constants.ACTIONS.CHANGE_SELECTION:
 					action.parseChangeSelection();
@@ -654,6 +656,8 @@ class CommandBlock {
 					action.parseAssignGroup();
 					break;
 				case constants.ACTIONS.SELECT_SUBGROUP:
+					action.parseSelectSubgroup();
+					break;
 				case constants.ACTIONS.SCENARIO_TRIGGER:
 				case constants.ACTIONS.MINIMAP_SIGNAL:
 					action.data = buffer.read(12);
@@ -701,7 +705,7 @@ class CommandBlock {
 						throw Error("unknown actions : " + actionId);	
 					}
 			}
-
+			
 			parser.emitEvent(constants.EVENTS.PARSED.ACTION, action)
 		}
 	}
@@ -759,6 +763,8 @@ class Action {
 		for (var i = 0; i < this.numberOfUnits; i++) {
 			this.objectIds.push({objectId1: this.buffer.read(4).toString("hex"), objectId2 : this.buffer.read(4).toString("hex")})
 		}
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.GROUP_INFO, this)
 	}
 
 	parseMapTriggerChatCommand () {
@@ -804,17 +810,67 @@ class Action {
 
 	}
 
+	parseUnitAbilityWithPosAndItem () {
+		this.abilityFlags = new AbilityFlags(this.buffer)
+		
+		this.A = {}
+		this.B = {}
+
+		this.A.itemId = this.buffer.read(4)
+
+		this.buffer.read(8)	; // unknown
+		
+		this.A.targetX = this.buffer.read(4).readUIntLE(0, 4)	
+		this.A.targetY = this.buffer.read(4).readUIntLE(0, 4)	
+		
+		this.buffer.read(9)	; // unknown
+
+		this.B.itemId = this.buffer.read(4)
+
+		this.B.targetX = this.buffer.read(4).readUIntLE(0, 4)	
+		this.B.targetY = this.buffer.read(4).readUIntLE(0, 4)	
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.UNIT_ABILITY_WITH_POS_AND_ITEM, this)
+
+	}
+
+	parseUnitAbilityWithPos () {
+		this.abilityFlags = new AbilityFlags(this.buffer)
+		this.itemId = this.buffer.read(4)
+
+		this.buffer.read(8)	; // unknown
+		
+		this.targetX = this.buffer.read(4).readUIntLE(0, 4)	
+		this.targetY = this.buffer.read(4).readUIntLE(0, 4)	
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.UNIT_ABILITY_WITH_POS, this)
+
+	}
+
 	parseSyncInteger () {
 		this.name = this.buffer.readUntil(NULL_STRING).toString();
 		this.checksum = this.buffer.readUntil(NULL_STRING)
 		this.secondChecksum = this.buffer.readUntil(NULL_STRING)
 		this.weakChecksum = this.buffer.read(4)
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.SYNC_INTEGER, this)
 	}
 
 	parseTransferResources () {
 		this.receivingPlayerId = this.buffer.read(1).readUIntLE(0, 1);
 		this.gold = this.buffer.read(4).readUIntLE(0, 4);
 		this.lumber = this.buffer.read(4).readUIntLE(0, 4);
+
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.TRANSFER_RESOURCES, this)
+	}
+
+	parseSelectSubgroup () {
+		this.itemId = this.buffer.read(4)
+
+		this.objectId1 = this.buffer.read(4).readUIntLE(0, 4)	
+		this.objectId2 = this.buffer.read(4).readUIntLE(0, 4)	
+	
+		this.parser.emitEvent(constants.EVENTS.ACTIONS.SELECT_SUBGROUP, this)
 	}
 
 }
@@ -1010,7 +1066,8 @@ const constants = {
 			BLOCK: "parsed-block",
 			ACTION: "parsed-action",
 			CHAT: "parsed-chat",
-			LEFT_GAME: "parsed-left-game"
+			LEFT_GAME: "parsed-left-game",
+			CHECKSUM: "parsed-checksum"
 		},
 		ACTIONS: {
 			MAP_TRIGGER_CHAT_COMMAND: "map-trigger-chat-command",
@@ -1020,7 +1077,13 @@ const constants = {
 			UNIT_ABILITY: "unit-ability",
 			SELECT_GROUND_ITEM: "select-ground-item",
 			UNIT_ABILITY_WITH_POS_AND_TARGET: "unit-ability-with-pos-and-target",
-			UNKNOWN: "unknown"
+			UNIT_ABILITY_WITH_POS_AND_ITEM: "unit-ability-with-pos-and-item",
+			UNIT_ABILITY_WITH_POS: "unit-ability-with-pos",
+			UNKNOWN: "unknown",
+			GROUP_INFO: "group-info",
+			SYNC_INTEGER: "sync-integer",
+			SELECT_SUBGROUP: "select-subgroup",
+			TRANSFER_RESOURCES: "transfer-resources"
 		}
 	}
 }
