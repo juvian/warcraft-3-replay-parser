@@ -6,7 +6,7 @@ class PlayerRecord {
 		this.type = buffer.read(1).toString("hex");
 		this.id = buffer.read(1).readUIntLE(0, 1);
 
-		this.name = buffer.readUntil(NULL_STRING).toString();
+		this.name = buffer.readUntil(constants.NULL_STRING).toString();
 
 		this.additionalDataSize = buffer.read(1).readUIntLE(0, 1);
 

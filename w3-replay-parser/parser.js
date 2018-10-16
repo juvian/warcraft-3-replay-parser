@@ -2,13 +2,13 @@
 
 var fs = require('fs');
 var crc32 = require('js-crc').crc32;
-const zlib = require('zlib');
 const constants = require('./constants');
 var BlockReader = require('./block-reader');
 var BufferWrapper = require('./buffer-wrapper');
 var Header = require('./header');
-var SubHeader = require('./sub-header');
+var Subheader = require('./sub-header');
 var BlockParser = require('./block-parser');
+var StartupBlock = require('./startup-block');
 
 class Parser {
 	constructor(buffer, config = {}) {
@@ -109,10 +109,6 @@ class Parser {
 		new BlockParser(onDemandBuffer, this)
 	}
 
-	uncompress (buffer) {
-		return zlib.inflateSync(buffer, {finishFlush: zlib.constants.Z_SYNC_FLUSH });
-	}
-
 	read (bytes) {
 		return new BufferWrapper(this.buffer.read(bytes));
 	}
@@ -142,7 +138,5 @@ function hexToBytes(hex) {
     	bytes.push(parseInt(hex.substr(c, 2), 16));
     return bytes;
 }
-
-const NULL_STRING = '\0';
 
 module.exports = Parser

@@ -1,3 +1,6 @@
+const zlib = require('zlib');
+
+
 class BlockReader {
 	constructor (parser) {
 		this.currentBlock = 0;

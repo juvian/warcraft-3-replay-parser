@@ -57,7 +57,7 @@ class Action {
 
 	parseMapTriggerChatCommand () {
 		this.unknown = this.buffer.read(8); 
-		this.chatCommand = this.buffer.readUntil(NULL_STRING).toString();
+		this.chatCommand = this.buffer.readUntil(constants.NULL_STRING).toString();
 
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.MAP_TRIGGER_CHAT_COMMAND, this)
 	}
@@ -136,9 +136,9 @@ class Action {
 	}
 
 	parseSyncInteger () {
-		this.name = this.buffer.readUntil(NULL_STRING).toString();
-		this.checksum = this.buffer.readUntil(NULL_STRING)
-		this.secondChecksum = this.buffer.readUntil(NULL_STRING)
+		this.name = this.buffer.readUntil(constants.NULL_STRING).toString();
+		this.checksum = this.buffer.readUntil(constants.NULL_STRING)
+		this.secondChecksum = this.buffer.readUntil(constants.NULL_STRING)
 		this.weakChecksum = this.buffer.read(4)
 
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.SYNC_INTEGER, this)

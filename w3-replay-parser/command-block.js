@@ -48,7 +48,7 @@ class CommandBlock {
 					buffer.read(1);
 					break;
 				case constants.ACTIONS.SAVE_GAME:
-					buffer.readUntil(NULL_STRING);
+					buffer.readUntil(constants.NULL_STRING);
 					break;
 				case constants.ACTIONS.CHEAT_KEYER_SOZE:				
 				case constants.ACTIONS.CHEAT_LEAF_IT_TO_ME:				

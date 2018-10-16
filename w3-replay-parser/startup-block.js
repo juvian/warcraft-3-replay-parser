@@ -14,17 +14,17 @@ class StartupBlock {
 		this.unknown = buffer.read(4); // unknown
 		this.playerRecord = new PlayerRecord(buffer, parser);
 
-		this.gameName = buffer.readUntil(NULL_STRING).toString();
+		this.gameName = buffer.readUntil(constants.NULL_STRING).toString();
 		buffer.read(1); // Nullbyte
 
-		var encoded = buffer.readUntil(NULL_STRING);
+		var encoded = buffer.readUntil(constants.NULL_STRING);
 		var decoded = this.decode(encoded);
 
 		this.gameSettings = new GameSettings(decoded);
 
-		this.map = decoded.readUntil(NULL_STRING).toString();
+		this.map = decoded.readUntil(constants.NULL_STRING).toString();
 
-		this.creator = decoded.readUntil(NULL_STRING).toString();
+		this.creator = decoded.readUntil(constants.NULL_STRING).toString();
 
 		this.playerCount = buffer.read(4).readUIntLE(0, 4);
 

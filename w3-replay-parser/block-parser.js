@@ -1,4 +1,5 @@
 const constants = require('./constants');
+var Block = require('./block.js');
 
 class BlockParser {
 	
@@ -16,7 +17,8 @@ class BlockParser {
 			var block = new Block(buffer, this.parser);
 
 			if ([constants.BLOCK_TYPE.FIRST, constants.BLOCK_TYPE.SECOND, constants.BLOCK_TYPE.THIRD].includes(this.type)) {
-				if(buffer.peek(4).toString("hex") != '01000000') throw Error('Invalid start blocks : ' + buffer.read(4).toString("hex"));
+				var bytes = buffer.read(4).toString("hex"); 
+				if(bytes != '01000000') throw Error('Invalid start blocks : ' + bytes);
 			} else if ([constants.BLOCK_TYPE.TIME_SLOT_OLD, constants.BLOCK_TYPE.TIME_SLOT].includes(this.type)) {
 				block.parseTimeSlot();
 			} else if (this.type == constants.BLOCK_TYPE.CHAT) {

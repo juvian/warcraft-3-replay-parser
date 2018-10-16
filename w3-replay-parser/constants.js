@@ -199,5 +199,6 @@ module.exports = {
 			SELECT_SUBGROUP: "select-subgroup",
 			TRANSFER_RESOURCES: "transfer-resources"
 		}
-	}
+	},
+	NULL_STRING: '\0'
 }

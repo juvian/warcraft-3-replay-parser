@@ -1,5 +1,4 @@
 const constants = require('./constants');
-const Utils = require('./utils');
 
 class Subheader {
 
@@ -44,4 +43,4 @@ class Subheader {
 
 }
 
-modules.exports = Subheader;
+module.exports = Subheader;

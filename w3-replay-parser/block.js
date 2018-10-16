@@ -1,4 +1,5 @@
 const constants = require('./constants');
+var CommandBlock = require('./command-block.js')
 
 class Block {
 
@@ -44,7 +45,7 @@ class Block {
 			messageLength -= 4;
 		}
 
-		this.message = buffer.readUntil(NULL_STRING).toString();
+		this.message = buffer.readUntil(constants.NULL_STRING).toString();
 
 		this.player = this.parser.getPlayer(this.playerId)
 				
