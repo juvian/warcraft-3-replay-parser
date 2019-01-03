@@ -45,10 +45,10 @@ class CommandBlock {
 					break;
 				case constants.ACTIONS.SET_GAME_SPEED:
 				case constants.ACTIONS.UNKNOWN_0X75:
-					buffer.read(1);
+					action.data = buffer.read(1);
 					break;
 				case constants.ACTIONS.SAVE_GAME:
-					buffer.readUntil(constants.NULL_STRING);
+					action.data = buffer.readUntil(constants.NULL_STRING);
 					break;
 				case constants.ACTIONS.CHEAT_KEYER_SOZE:				
 				case constants.ACTIONS.CHEAT_LEAF_IT_TO_ME:				

@@ -56,24 +56,24 @@ class Action {
 	}
 
 	parseMapTriggerChatCommand () {
-		this.unknown = this.buffer.read(8); 
+		this.unknown = this.buffer.read(8).toString("hex"); 
 		this.chatCommand = this.buffer.readUntil(constants.NULL_STRING).toString();
 
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.MAP_TRIGGER_CHAT_COMMAND, this)
 	}
 
 	parseUnitAbility () {
-		this.abilityFlags = this.buffer.read(2)
+		this.abilityFlags = this.buffer.read(2).toString("hex")
 
-		this.itemId = this.buffer.read(4)
+		this.itemId = this.buffer.read(4).toString("hex")
 
-		this.unknown = this.buffer.read(8)
+		this.unknown = this.buffer.read(8).toString("hex")
 		
 		this.parser.emitEvent(constants.EVENTS.ACTIONS.UNIT_ABILITY, this)
 	}
 
 	parseSelectGroundItem () {
-		this.abilityFlags = this.buffer.read(1)
+		this.abilityFlags = this.buffer.read(1).toString("hex")
 		
 		this.itemObjectId1 = this.buffer.read(4).toString("hex");
 		this.itemObjectId2 = this.buffer.read(4).toString("hex");	

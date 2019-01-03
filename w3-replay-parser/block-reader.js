@@ -8,7 +8,7 @@ class BlockReader {
 	}
 
 	hasMoreData () {
-		return this.currentBlock < this.parser.header.blocks;	
+		return this.parser.config.fromCrash ? true : this.currentBlock < this.parser.header.blocks;	
 	}
 
 	getMoreData () {

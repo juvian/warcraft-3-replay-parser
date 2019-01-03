@@ -24,7 +24,8 @@ class Parser {
 		this.config = Object.assign({
 			parseActions: false,
 			shouldParseBlocks: false,
-			ignoreUnknown: false
+			ignoreUnknown: false,
+			fromCrash: false
 		}, config);
 
 		this.listeners = {}
@@ -37,9 +38,20 @@ class Parser {
 	parse () {
 		this.checkSumBuffer = "";
 
-		this.parseHeader();
-		this.parseSubHeader();
-		this.parseBlocks();
+		if (this.config.fromCrash) {
+			if (this.buffer.peek(68).toString('hex') == "0".repeat(136)) {
+				this.buffer.read(68);
+			} else if (this.buffer.peek(64).toString('hex') == "0".repeat(128)) {
+				this.buffer.read(64);
+			} else {
+				throw Error("Couldn't guess replay version");
+			}
+			this.parseBlocks();
+		} else {
+			this.parseHeader();
+			this.parseSubHeader();
+			this.parseBlocks();
+		}
 
 	}
 
@@ -120,6 +132,11 @@ class Parser {
 	getTime () {
 		var secs = Math.floor(this.time / 1000); 
 		return ("0" + Math.floor(secs / 60)).slice(-2) +  ":" + ("0" + secs % 60).slice(-2);
+	}
+
+	getProgress () {
+		if (!this.subHeader) return 0;
+		return this.time / this.subHeader.replayLength * 100
 	}
 
 	getPlayer(playerId) {

@@ -7,7 +7,9 @@ class Header {
 
 		parser.checkSumBuffer += buffer.toString('hex');
 
-		if (buffer.read(28).toString().indexOf('Warcraft III recorded game') != 0) throw new Error("Not a replay file");
+		var start = buffer.read(28).toString();
+
+		if (start.indexOf('Warcraft III recorded game') != 0) throw new Error("Not a warcraft III replay file" + start);
 
 		this.firstDataBlock = "0x" + buffer.read(4).readUIntLE(0, 3).toString(16);
 		this.compressedSize = buffer.read(4).readUIntLE(0, 3);
