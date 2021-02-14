@@ -10,10 +10,10 @@ class Action {
 	parseGiveDropItem () {	
 		var buffer = this.buffer;
 
-		this.abilityFlags = this.buffer.read(2);
+		this.abilityFlags = this.buffer.read(2).toString("hex");
 		this.itemId = this.buffer.read(4).toString("hex");
 		
-		this.unknown = buffer.read(8);
+		this.unknown = buffer.read(8).toString("hex");
 		
 		this.targetX = buffer.read(4).toString("hex");
 		this.targetY = buffer.read(4).toString("hex");
@@ -82,10 +82,10 @@ class Action {
 	}
 
 	parseUnitAbilityWithPosAndTarget () {
-		this.abilityFlags =this.buffer.read(2)
-		this.itemId = this.buffer.read(4)
+		this.abilityFlags =this.buffer.read(2).toString("hex")
+		this.itemId = this.buffer.read(4).toString("hex")
 
-		this.unknown = this.buffer.read(8);
+		this.unknown = this.buffer.read(8).toString("hex");
 		
 		this.targetX = this.buffer.read(4).readUIntLE(0, 4)	
 		this.targetY = this.buffer.read(4).readUIntLE(0, 4)	
@@ -99,21 +99,21 @@ class Action {
 	}
 
 	parseUnitAbilityWithPosAndItem () {
-		this.abilityFlags = this.buffer.read(2)
+		this.abilityFlags = this.buffer.read(2).toString("hex")
 		
 		this.A = {}
 		this.B = {}
 
-		this.A.itemId = this.buffer.read(4)
+		this.A.itemId = this.buffer.read(4).toString("hex")
 
-		this.unknown = this.buffer.read(8);
+		this.unknown = this.buffer.read(8).toString("hex");
 		
 		this.A.targetX = this.buffer.read(4).readUIntLE(0, 4)	
 		this.A.targetY = this.buffer.read(4).readUIntLE(0, 4)	
 		
-		this.unknown = this.buffer.read(9);
+		this.unknown = this.buffer.read(9).toString("hex");
 
-		this.B.itemId = this.buffer.read(4)
+		this.B.itemId = this.buffer.read(4).toString("hex")
 
 		this.B.targetX = this.buffer.read(4).readUIntLE(0, 4)	
 		this.B.targetY = this.buffer.read(4).readUIntLE(0, 4)	
